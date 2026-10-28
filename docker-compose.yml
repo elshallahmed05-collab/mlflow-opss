@@ -1,0 +1,56 @@
+services:
+  mlflow:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./mlruns:/app/mlruns
+      - ./mlflow_data:/app/mlflow_data
+    command: >
+      sh -c "pip install --no-cache-dir 'mlflow>=2.17,<4' &&
+      python -m mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////app/mlflow_data/mlflow.db
+      --default-artifact-root /app/mlruns"
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  trainer:
+    build: .
+    command: ["python", "-m", "src.train"]
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_EXPERIMENT_NAME: churn-classification
+      MODEL_NAME: ChurnClassifier
+      RANDOM_STATE: "42"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    volumes:
+      - ./mlruns:/app/mlruns
+    restart: "no"
+
+  api:
+    build: .
+    command: ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_NAME: ChurnClassifier
+      MODEL_LOAD_RETRIES: "30"
+      MODEL_LOAD_DELAY_SECONDS: "2"
+    ports:
+      - "8000:8000"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+      trainer:
+        condition: service_completed_successfully
+    volumes:
+      - ./mlruns:/app/mlruns
+    restart: unless-stopped
