@@ -117,8 +117,10 @@ if __name__ == "__main__":
         try:
             train()
             break
-        except Exception:
+        except Exception as error:
             if attempt == 29:
                 raise
-            print("Waiting for MLflow server...")
+
+            print(f"Training attempt {attempt + 1} failed: {error}")
+            print("Retrying in 2 seconds...")
             time.sleep(2)
