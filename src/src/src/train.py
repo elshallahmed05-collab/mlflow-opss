@@ -17,7 +17,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from src.data import make_dataset
 
 
-MODEL_NAME = os.getenv("MODEL_NAME", "ChurnClassifier")
+RANDOM_STATE = int(os.getenv("RANDOM_STATE", "42"))
 
 
 def train():
@@ -37,7 +37,7 @@ def train():
         X,
         y,
         test_size=0.2,
-        random_state=42,
+        random_state=RANDOM_STATE,
         stratify=y,
     )
 
@@ -67,7 +67,7 @@ def train():
             "classifier",
             RandomForestClassifier(
                 n_estimators=120,
-                random_state=42,
+               random_state=RANDOM_STATE,
                 class_weight="balanced",
             ),
         ),
@@ -82,7 +82,7 @@ def train():
         mlflow.log_params({
             "model": "RandomForestClassifier",
             "n_estimators": 120,
-            "random_state": 42,
+           "random_state": RANDOM_STATE,
         })
 
         mlflow.log_metrics({
