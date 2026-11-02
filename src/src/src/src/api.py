@@ -15,7 +15,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-MODEL_NAME = os.getenv("MODEL_NAME", "ChurnClassifier")
+MODEL_LOAD_RETRIES = int(os.getenv("MODEL_LOAD_RETRIES", "30"))
+MODEL_LOAD_DELAY_SECONDS = float(
+    os.getenv("MODEL_LOAD_DELAY_SECONDS", "2")
+)
 MODEL = None
 
 
@@ -39,7 +42,7 @@ def load_model():
     mlflow.set_tracking_uri(tracking_uri)
     client = mlflow.tracking.MlflowClient()
 
-    for attempt in range(30):
+    for attempt in range(MODEL_LOAD_RETRIES):
         try:
             versions = client.search_model_versions(
                 f"name='{MODEL_NAME}'"
@@ -59,9 +62,12 @@ def load_model():
         except Exception as exc:
             print(f"Waiting for model: {exc}")
 
-        time.sleep(2)
+       time.sleep(MODEL_LOAD_DELAY_SECONDS)
 
-    print("Warning: model was not loaded.")
+   raise RuntimeError(
+    f"Failed to load MLflow model '{MODEL_NAME}' "
+    f"after {MODEL_LOAD_RETRIES} attempts."
+)
 
 
 @app.on_event("startup")
@@ -81,7 +87,7 @@ def home():
 @app.get("/health")
 def health():
     return {
-        "status": "ok",
+        "status": "ok" if MODEL is not None else "degraded",
         "model_loaded": MODEL is not None,
     }
 
