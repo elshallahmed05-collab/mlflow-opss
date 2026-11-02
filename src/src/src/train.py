@@ -26,8 +26,9 @@ def train():
         "http://127.0.0.1:5000",
     )
     mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment("customer-churn")
-
+   mlflow.set_experiment(
+    os.getenv("MLFLOW_EXPERIMENT_NAME", "churn-classification")
+)
     df = make_dataset()
     X = df.drop(columns=["churn"])
     y = df["churn"]
